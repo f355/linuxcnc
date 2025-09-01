@@ -880,6 +880,7 @@ class HandlerClass:
 
     # called from hal_glib to run macros from external event
     def request_macro_call(self, data):
+        print('macro request:',data)
         if not STATUS.is_mdi_mode():
             self.add_status(_translate("HandlerClass",'Machine must be in MDI mode to run macros'), CRITICAL)
             return
@@ -904,6 +905,8 @@ class HandlerClass:
                 self.add_status(_translate("HandlerClass",'Running macro: {} {}'.format(key, text)))
                 button.click()
                 break
+        else:
+            self.add_status(_translate("HandlerClass","can't find button for macro: {}".format(data)))
 
     #######################
     # CALLBACKS FROM FORM #
@@ -2049,9 +2052,14 @@ class HandlerClass:
 
     def dialog_ext_control(self, pin, value, answer):
         if value:
+            # handler defined dialog?
             if not self._dialog_message is None:
                 name = self._dialog_message.get('NAME')
                 STATUS.emit('dialog-update',{'NAME':name,'response':answer})
+            else:
+                # tool change dialog?
+                if self.w.toolDialog_.isVisible():
+                    STATUS.emit('dialog-update',{'NAME':'TOOLCHANGE','response':answer})
 
     def log_version(self):
         if INFO.RIP_FLAG:
@@ -2066,33 +2074,6 @@ class HandlerClass:
                  t)
         self.add_status(mess, CRITICAL,noLog=True)
         STATUS.emit('update-machine-log', mess, None)
-
-    # called from hal_glib to run macros from external event
-    def request_macro_call(self, data):
-        if not STATUS.is_mdi_mode():
-            self.add_status(_translate("HandlerClass",'Machine must be in MDI mode to run macros'), CRITICAL)
-            return
-
-        for b in range(0,10):
-            button = self.w['macrobutton{}'.format(b)]
-            # prefer named INI MDI commands
-            key = button.property('ini_mdi_key')
-            code = INFO.get_ini_mdi_command(key)
-            if key == '' or code is None:
-                # fallback to legacy nth line
-                key = button.property('ini_mdi_number')
-                code = INFO.get_ini_mdi_command(key)
-                if code is None:
-                    continue
-            if str(key) == data:
-                #print('match',button.objectName())
-                text = button.text().replace('\n',' ')
-                self.add_status(_translate("HandlerClass",'Running macro: {} {}'.format(key, text)))
-                try:
-                    button.click()
-                except Exception as e:
-                    self.add_status(_translate("HandlerClass",'Running macro: {} {}\n{}'.format(key, text, e)))
-                break
 
     #####################
     # KEY BINDING CALLS #
